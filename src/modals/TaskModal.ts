@@ -8,7 +8,9 @@ import {
   MarkdownRenderer,
   Notice,
   setIcon,
-  setTooltip
+  setTooltip,
+  TFile,
+  TFolder
 } from 'obsidian'
 import type PMPlugin from '../main'
 import { type Project, type Task, makeTask } from '../types'
@@ -557,6 +559,7 @@ export class TaskModal extends Modal {
       this.close()
     })
 
+    const documentationBtn = new ButtonComponent(footer).setButtonText('Documentation')
     const saveBtn = new ButtonComponent(footer)
       .setButtonText(this.isNew ? 'Create (Shift+Enter)' : 'Save (Shift+Enter)')
       .setCta()
@@ -589,6 +592,40 @@ export class TaskModal extends Modal {
     saveBtn.onClick(() => {
       void doSave()
     })
+
+    documentationBtn.onClick(async () => {
+        const doc_folder = this.plugin.settings.projectsFolder + "/" + this.project.title + "_notes"
+        const note_name = this.app.vault.getAbstractFileByPath(this.task.filePath).name
+        const notes_file = doc_folder + "/" + note_name
+
+        try {
+          if (!(this.app.vault.getAbstractFileByPath(doc_folder) instanceof TFolder)) {
+            await this.app.vault.createFolder(doc_folder)
+          }
+        } catch (error) {
+          showTitleError("Failed to create documentation folder: " + error.stringify);
+        }
+
+        try {
+          const existing = this.app.vault.getAbstractFileByPath(notes_file);
+          let fileToOpen: TFile;
+          if (existing instanceof TFile) {
+            fileToOpen = existing; 
+          } else {
+            fileToOpen = await this.app.vault.create(notes_file, "")
+          }
+          
+          const leaf = this.app.workspace.getLeaf(true);
+          await leaf.openFile(fileToOpen);
+        } catch (error) {
+          showTitleError("Failed to create documentation note: " + error.stringify);
+        }
+
+        void doSave()
+      }
+    )
+
+
 
     if (this.saveKeyHandler) this.modalEl.removeEventListener('keydown', this.saveKeyHandler)
     this.saveKeyHandler = (e: KeyboardEvent) => {
